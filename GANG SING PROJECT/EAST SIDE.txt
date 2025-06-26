@@ -1,0 +1,64 @@
+import cv2
+import mediapipe as mp
+
+# Initialize MediaPipe Hands
+mp_hands = mp.solutions.hands
+hands = mp_hands.Hands(max_num_hands=1, min_detection_confidence=0.7)
+mp_drawing = mp.solutions.drawing_utils
+
+# Initialize OpenCV
+cap = cv2.VideoCapture(0)
+
+while cap.isOpened():
+    ret, frame = cap.read()
+    if not ret:
+        break
+
+    # Flip the image horizontally for a later selfie-view display
+    frame = cv2.flip(frame, 1)
+
+    # Convert the BGR image to RGB
+    rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+
+    # Process the image and detect hands
+    results = hands.process(rgb_frame)
+
+    # Draw hand landmarks and check for thumb and ring finger overlap
+    if results.multi_hand_landmarks:
+        for hand_landmarks in results.multi_hand_landmarks:
+            # Draw the hand landmarks
+            mp_drawing.draw_landmarks(frame, hand_landmarks, mp_hands.HAND_CONNECTIONS)
+
+            # Get the coordinates of the thumb tip (landmark 4) and ring finger tip (landmark 16)
+            thumb_tip = hand_landmarks.landmark[mp_hands.HandLandmark.THUMB_TIP]
+            ring_tip = hand_landmarks.landmark[mp_hands.HandLandmark.RING_FINGER_TIP]
+
+            # Get the image dimensions
+            h, w, c = frame.shape
+
+            # Convert normalized coordinates to pixel values
+            thumb_x, thumb_y = int(thumb_tip.x * w), int(thumb_tip.y * h)
+            ring_x, ring_y = int(ring_tip.x * w), int(ring_tip.y * h)
+
+            # Check if thumb and ring finger tips are close to each other
+            if abs(thumb_x - ring_x) < 20 and abs(thumb_y - ring_y) < 20:
+                # Draw a green box around the hand
+                x_min = min([lm.x for lm in hand_landmarks.landmark]) * w
+                y_min = min([lm.y for lm in hand_landmarks.landmark]) * h
+                x_max = max([lm.x for lm in hand_landmarks.landmark]) * w
+                y_max = max([lm.y for lm in hand_landmarks.landmark]) * h
+                cv2.rectangle(frame, (int(x_min), int(y_min)), (int(x_max), int(y_max)), (0, 255, 0), 2)
+
+                # Display "EAST SIDE" on the screen
+                cv2.putText(frame, "EAST SIDE", (50, 100), cv2.FONT_HERSHEY_SIMPLEX, 2, (255, 255, 255), 9)
+
+    # Display the frame
+    cv2.imshow('Hand Detection', frame)
+
+    # Break the loop if 'q' is pressed
+    if cv2.waitKey(1) & 0xFF == ord('q'):
+        break
+
+# Release the capture and close windows
+cap.release()
+cv2.destroyAllWindows()
